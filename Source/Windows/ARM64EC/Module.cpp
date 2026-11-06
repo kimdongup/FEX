@@ -834,6 +834,21 @@ public:
         }
       }
     }
+    if (Result.Size == 0 && ImageTracker) {
+      auto Section = ImageTracker->LookupExecutableFileSection(Address);
+      if (Section.has_value()) {
+        uint64_t Base = Section->BeginVA;
+        uint64_t Size = Section->EndVA - Section->BeginVA;
+        InvalidationTracker->InsertXInterval(Base, Section->EndVA);
+        static uint32_t RecoveryCount = 0;
+        if (RecoveryCount < 16) {
+          RecoveryCount++;
+          LogMan::Msg::EFmt("[iOS-xquery] RECOVERED from ImageTracker addr={:#x} base={:#x} size={:#x}",
+                            Address, Base, Size);
+        }
+        return {Base, Size, false};
+      }
+    }
     if (Result.Size == 0) {
       static uint32_t QueryFailCount = 0;
       if (QueryFailCount < 12) {

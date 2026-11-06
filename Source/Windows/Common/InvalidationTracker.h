@@ -52,6 +52,7 @@ public:
   InvalidateContainingSectionResult InvalidateContainingSection(uint64_t Address, bool Free);
   void InvalidateAlignedInterval(uint64_t Address, uint64_t Size, bool Free);
   void ReprotectRWXIntervals(uint64_t Address, uint64_t Size);
+  void InsertXInterval(uint64_t Base, uint64_t End);
   // MADEIRA: if HotPage is given, it is set when the fault hit an already hot page (see EnableHotSMCPages),
   // which is unprotected again but not invalidated.
   bool HandleRWXAccessViolation(FEXCore::Core::InternalThreadState* Thread, uint64_t HostPC, uint64_t FaultAddress, bool* HotPage = nullptr);

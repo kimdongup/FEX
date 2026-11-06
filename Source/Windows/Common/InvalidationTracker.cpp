@@ -489,6 +489,15 @@ void InvalidationTracker::InvalidateAlignedInterval(uint64_t Address, uint64_t S
   InvalidateIntervalInternal(AlignedBase, AlignedSize);
 
   if (Free) {
+    /* iOS-Madeira: guard against bulk pool / reservation frees wiping out loaded module executable ranges!
+     * Exactly like the bulk guard in NotifyMemoryProtect/Alloc (line 156), a >= 512MB / 1GB free
+     * is an allocator pool release, never an individual code unmap. */
+    if (AlignedSize >= (1ull << 30)) {
+      LogMan::Msg::EFmt("[iOS-xrem] SUPPRESSED bulk free {:#x}-{:#x} ({} MB)",
+                        AlignedBase, AlignedBase + AlignedSize, AlignedSize >> 20);
+      return;
+    }
+
     std::unique_lock Lock(IntervalsLock);
     // ml437 (#74): this fires on EVERY guest free/decommit (the ml201 probe is
     // unconditional) — ml436 logged 4,234 lines of ordinary heap decommit
@@ -505,6 +514,11 @@ void InvalidationTracker::InvalidateAlignedInterval(uint64_t Address, uint64_t S
     RWXIntervals.Remove({AlignedBase, AlignedBase + AlignedSize});
     ForgetHotSMCPages(AlignedBase, AlignedBase + AlignedSize);
   }
+}
+
+void InvalidationTracker::InsertXInterval(uint64_t Base, uint64_t End) {
+  std::unique_lock Lock(IntervalsLock);
+  XIntervals.Insert({Base, End});
 }
 
 void InvalidationTracker::ReprotectRWXIntervals(uint64_t Address, uint64_t Size) {
