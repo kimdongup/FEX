@@ -743,11 +743,12 @@ void Dispatcher::EmitDispatcher() {
     if (CallRetStackUsed()) {
       ARMEmitter::ForwardLabel l_callret_ok;
       ldr(TMP1, STATE, offsetof(FEXCore::Core::CpuStateFrame, State.callret_sp_base));
+      add(ARMEmitter::Size::i64Bit, TMP1, TMP1, FEXCore::Core::InternalThreadState::CALLRET_LIVE_OFFSET);
       sub(ARMEmitter::Size::i64Bit, TMP1, REG_CALLRET_SP, TMP1);
-      lsr(ARMEmitter::Size::i64Bit, TMP1, TMP1, 23);   /* madeira-bcd: 8 MiB call-return stack: the reservation is 2^23 */
+      lsr(ARMEmitter::Size::i64Bit, TMP1, TMP1, FEXCore::Core::InternalThreadState::CALLRET_LIVE_SHIFT);
       (void)cbz(ARMEmitter::Size::i64Bit, TMP1, &l_callret_ok);
       ldr(REG_CALLRET_SP, STATE, offsetof(FEXCore::Core::CpuStateFrame, State.callret_sp_base));
-      add(ARMEmitter::Size::i64Bit, REG_CALLRET_SP, REG_CALLRET_SP, 0x400000);
+      add(ARMEmitter::Size::i64Bit, REG_CALLRET_SP, REG_CALLRET_SP, FEXCore::Core::InternalThreadState::CALLRET_DEFAULT_OFFSET);
       (void)Bind(&l_callret_ok);
     }
 #endif

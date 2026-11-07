@@ -119,6 +119,7 @@ private:
   void DecodeREXIfValid(int8_t ExpectedOffset = -1);
 
   static constexpr size_t DefaultDecodedBufferSize = 0x10000;
+  const size_t DecodedBufferCapacity;
   FEXCore::X86Tables::DecodedInst* DecodedBuffer {};
   Utils::PoolBufferWithTimedRetirement<FEXCore::X86Tables::DecodedInst*, 5000, 500> PoolObject;
   size_t DecodedSize {};

@@ -86,6 +86,16 @@ RegClass IREmitter::WalkFindRegClass(Ref Node) {
 }
 
 void IREmitter::ResetWorkingList() {
+  if (TraceMemoryUsage) {
+    DataUsagePeak = std::max(DataUsagePeak, DualListData.DataSize());
+    ListUsagePeak = std::max(ListUsagePeak, DualListData.ListSize());
+    const size_t Bucket = (std::max(DataUsagePeak, ListUsagePeak) + 65535) / 65536;
+    if (Bucket > ReportedUsageBucket) {
+      ReportedUsageBucket = Bucket;
+      LogMan::Msg::EFmt("[fex-ir-usage] data_peak={} list_peak={} half_capacity={} bucket={}",
+                       DataUsagePeak, ListUsagePeak, DualListData.DataBackingSize(), Bucket);
+    }
+  }
   DualListData.Reset();
   CodeBlocks.clear();
   CurrentWriteCursor = nullptr;

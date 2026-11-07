@@ -2,6 +2,7 @@
 #pragma once
 
 #include <FEXCore/Core/CoreState.h>
+#include <FEXCore/Debug/CallRetStackGeometry.h>
 #include <FEXCore/Utils/AllocatorHooks.h>
 #include <FEXCore/Utils/TypeDefines.h>
 #include <FEXCore/Utils/LongJump.h>
@@ -10,6 +11,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <bit>
 #include <shared_mutex>
 #include <type_traits>
 
@@ -118,7 +120,9 @@ struct alignas(FEXCore::Utils::FEX_PAGE_SIZE) InternalThreadState : public FEXCo
   /* madeira-bcd: 8 MiB call-return stack (tools/patch-fex-ios-callret-8mb.py): every JIT
    * access stays in [2 MiB, 6 MiB), so 16 MiB reserved 10 MiB that
    * nothing touches, per thread, in a 12 GB FEX arena. */
-  static constexpr size_t CALLRET_STACK_SIZE {0x800000};
+  // This shadow stack is a return predictor. Keep its complete reservation
+  // small on iOS; every emitted guard and reset follows the geometry below.
+  static constexpr size_t CALLRET_STACK_SIZE {FEX_CALLRET_STACK_SIZE};
 
   // iOS-Madeira ml609/ml610: NAMED bounds for the window the CALL/RET guard enforces.
   //
@@ -147,9 +151,16 @@ struct alignas(FEXCore::Utils::FEX_PAGE_SIZE) InternalThreadState : public FEXCo
   //       and shrinking it strands the remainder resident.
   //
   // Clear CALLRET_STACK_SIZE. These constants describe the guard, not the cost.
-  static constexpr size_t CALLRET_DEFAULT_OFFSET {0x400000};        // 4MB: initial sp
-  static constexpr size_t CALLRET_LIVE_OFFSET {0x200000};           // 2MB: guard low bound
-  static constexpr size_t CALLRET_LIVE_SIZE {0x400000};             // 4MB: guard window [2MB,6MB)
+  // The preceding measurements describe the historical larger predictor.
+  // Current guards, including the callback sentinel, use these named bounds.
+  // ResetCallRetStack still reclaims the whole reservation, not this window.
+  static constexpr size_t CALLRET_DEFAULT_OFFSET {FEX_CALLRET_DEFAULT_OFFSET};
+  static constexpr size_t CALLRET_LIVE_OFFSET {FEX_CALLRET_LIVE_OFFSET};
+  static constexpr size_t CALLRET_LIVE_SIZE {FEX_CALLRET_LIVE_SIZE};
+  static constexpr unsigned CALLRET_LIVE_SHIFT {std::countr_zero(CALLRET_LIVE_SIZE)};
+  static_assert(std::has_single_bit(CALLRET_STACK_SIZE) && std::has_single_bit(CALLRET_LIVE_SIZE));
+  static_assert(CALLRET_LIVE_OFFSET >= 16 &&
+                CALLRET_LIVE_OFFSET + CALLRET_LIVE_SIZE + 16 <= CALLRET_STACK_SIZE);
 
   // The low address of the call-ret stack allocation (not including guard pages)
   void* CallRetStackBase {};

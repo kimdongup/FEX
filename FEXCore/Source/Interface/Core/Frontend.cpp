@@ -14,6 +14,7 @@ $end_info$
 #include <array>
 #include <algorithm>
 #include <cstring>
+#include <cstdlib>
 #include <FEXCore/Config/Config.h>
 #include <FEXCore/Core/X86Enums.h>
 #include <FEXCore/HLE/SyscallHandler.h>
@@ -66,11 +67,27 @@ static uint32_t MapVEXToReg(uint8_t vvvv, bool HasXMM) {
   }
 }
 
+/* Madeira: keep the allocation and the stopping condition on one per-decoder
+ * capacity. This bounds a compilation unit, not the guest instruction stream. */
+static size_t SelectDecodedBufferCapacity() {
+#ifdef _WIN32
+  const char* Compact = getenv("MADEIRA_FEX_DECODER_COMPACT");
+  if (Compact && Compact[0] == '1' && Compact[1] == '\0') {
+    return 0x1000;
+  }
+#endif
+  return 0x10000;
+}
+
 Decoder::Decoder(FEXCore::Core::InternalThreadState* Thread)
   : Thread {Thread}
   , CTX {static_cast<FEXCore::Context::ContextImpl*>(Thread->CTX)}
   , OSABI {CTX->SyscallHandler ? CTX->SyscallHandler->GetOSABI() : FEXCore::HLE::SyscallOSABI::OS_UNKNOWN}
-  , PoolObject {CTX->FrontendAllocator, sizeof(FEXCore::X86Tables::DecodedInst) * DefaultDecodedBufferSize} {
+  , DecodedBufferCapacity {SelectDecodedBufferCapacity()}
+  , PoolObject {CTX->FrontendAllocator, sizeof(FEXCore::X86Tables::DecodedInst) * DecodedBufferCapacity} {
+
+  LogMan::Msg::EFmt("[fex-memory] decoder slots={} bytes={} default_slots={}", DecodedBufferCapacity,
+                   sizeof(FEXCore::X86Tables::DecodedInst) * DecodedBufferCapacity, DefaultDecodedBufferSize);
 
   FEX_CONFIG_OPT(ReducedPrecision, X87REDUCEDPRECISION);
   if (ReducedPrecision) {
@@ -857,6 +874,7 @@ Decoder::DecodedBlockStatus Decoder::DecodeInstructionImpl(uint64_t PC) {
   LastEscapePrefix = 0;
   Instruction.fill(0);
 
+  LOGMAN_THROW_A_FMT(DecodedSize < DecodedBufferCapacity, "Decoder capacity exhausted before instruction write");
   DecodeInst = &DecodedBuffer[DecodedSize];
   memset(DecodeInst, 0, sizeof(DecodedInst));
   DecodeInst->PC = PC;
@@ -1649,7 +1667,7 @@ void Decoder::DecodeInstructionsAtEntry(FEXCore::Core::InternalThreadState* Thre
       }
 
       // Check if we need to end the entire multiblock
-      FinalInstruction = DecodedSize >= MaxInst || DecodedSize >= DefaultDecodedBufferSize || TotalInstructions >= MaxInst;
+      FinalInstruction = DecodedSize >= MaxInst || DecodedSize >= DecodedBufferCapacity || TotalInstructions >= MaxInst;
       if (FinalInstruction) {
         break;
       }

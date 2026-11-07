@@ -131,6 +131,14 @@ inline void* VirtualAlloc(void* Base, size_t Size, bool Execute = false, bool Co
     if (Ret) {
       return Ret;
     }
+    if (ios_fex_band_base >= 0x7000000000ULL) {
+      AddrReq.LowestStartingAddress = reinterpret_cast<void*>(0x7000000000ULL);
+      AddrReq.HighestEndingAddress = reinterpret_cast<void*>(0x717fffffffULL);
+      Ret = ::VirtualAlloc2(nullptr, nullptr, Size, (Commit ? MEM_COMMIT : 0) | MEM_RESERVE, PAGE_READWRITE, &AddrParam, 1);
+      if (Ret) {
+        return Ret;
+      }
+    }
     /* ml799: an exhausted arena must FAIL, not fall through.
      *
      * The unconstrained VirtualAlloc2 below places the allocation wherever the

@@ -12,16 +12,36 @@
 #include <FEXCore/fextl/vector.h>
 
 #include <algorithm>
+#include <cstdlib>
 #include <stdint.h>
 #include <string.h>
 
 namespace FEXCore::IR {
 
+inline size_t SelectIRHalfCapacity() {
+#ifdef _WIN32
+  const char* Value = getenv("MADEIRA_FEX_IR_HALF_MIB");
+  if (Value && Value[0] && !Value[1]) {
+    if (Value[0] == '2' || Value[0] == '4' || Value[0] == '8') {
+      return size_t(Value[0] - '0') * 1024 * 1024;
+    }
+  }
+#endif
+  return 8 * 1024 * 1024;
+}
+
 class IREmitter {
 public:
   IREmitter(FEXCore::Utils::IntrusivePooledAllocator& ThreadAllocator, bool SupportsTSOImm9)
-    : DualListData {ThreadAllocator, 8 * 1024 * 1024}
-    , SupportsTSOImm9(SupportsTSOImm9) {}
+    : DualListData {ThreadAllocator, SelectIRHalfCapacity()}
+    , SupportsTSOImm9(SupportsTSOImm9) {
+#ifdef _WIN32
+    const char* Trace = getenv("MADEIRA_FEX_IR_USAGE_TRACE");
+    TraceMemoryUsage = Trace && Trace[0] == '1' && Trace[1] == '\0';
+#endif
+    LogMan::Msg::EFmt("[fex-memory] ir_half_bytes={} ir_total_bytes={} trace={}",
+                     DualListData.DataBackingSize(), DualListData.DataBackingSize() * 2, TraceMemoryUsage);
+  }
 
   virtual ~IREmitter() = default;
 
@@ -561,6 +581,8 @@ protected:
 
   // These could be combined with a little bit of work to be more efficient with memory usage. Isn't a big deal
   DualIntrusiveAllocatorThreadPool DualListData;
+  bool TraceMemoryUsage {};
+  size_t DataUsagePeak {}, ListUsagePeak {}, ReportedUsageBucket {};
 
   Ref InvalidNode {};
   Ref CurrentCodeBlock {};

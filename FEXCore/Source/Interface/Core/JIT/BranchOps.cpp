@@ -236,12 +236,12 @@ DEF_OP(ExitFunction) {
            * and falls through to the L1 lookup, which is always correct. A reset costs
            * mispredictions, nothing else. */
           ldr(TMP1, STATE, offsetof(FEXCore::Core::CpuStateFrame, State.callret_sp_base));
-          add(ARMEmitter::Size::i64Bit, TMP1, TMP1, 0x200000);
+          add(ARMEmitter::Size::i64Bit, TMP1, TMP1, FEXCore::Core::InternalThreadState::CALLRET_LIVE_OFFSET);
           sub(ARMEmitter::Size::i64Bit, TMP1, REG_CALLRET_SP, TMP1);
-          lsr(ARMEmitter::Size::i64Bit, TMP1, TMP1, 22);
+          lsr(ARMEmitter::Size::i64Bit, TMP1, TMP1, FEXCore::Core::InternalThreadState::CALLRET_LIVE_SHIFT);
           (void)cbz(ARMEmitter::Size::i64Bit, TMP1, &l_callret_ok);
           ldr(REG_CALLRET_SP, STATE, offsetof(FEXCore::Core::CpuStateFrame, State.callret_sp_base));
-          add(ARMEmitter::Size::i64Bit, REG_CALLRET_SP, REG_CALLRET_SP, 0x400000);
+          add(ARMEmitter::Size::i64Bit, REG_CALLRET_SP, REG_CALLRET_SP, FEXCore::Core::InternalThreadState::CALLRET_DEFAULT_OFFSET);
           (void)Bind(&l_callret_ok);
         }
 #endif
@@ -307,12 +307,12 @@ DEF_OP(ExitFunction) {
         ARMEmitter::ForwardLabel l_callret_ok;
         /* iOS-Madeira ml263: tightened to a 4MB window -- see the first CALL push site. */
         ldr(TMP1, STATE, offsetof(FEXCore::Core::CpuStateFrame, State.callret_sp_base));
-        add(ARMEmitter::Size::i64Bit, TMP1, TMP1, 0x200000);
+        add(ARMEmitter::Size::i64Bit, TMP1, TMP1, FEXCore::Core::InternalThreadState::CALLRET_LIVE_OFFSET);
         sub(ARMEmitter::Size::i64Bit, TMP1, REG_CALLRET_SP, TMP1);
-        lsr(ARMEmitter::Size::i64Bit, TMP1, TMP1, 22);
+        lsr(ARMEmitter::Size::i64Bit, TMP1, TMP1, FEXCore::Core::InternalThreadState::CALLRET_LIVE_SHIFT);
         (void)cbz(ARMEmitter::Size::i64Bit, TMP1, &l_callret_ok);
         ldr(REG_CALLRET_SP, STATE, offsetof(FEXCore::Core::CpuStateFrame, State.callret_sp_base));
-        add(ARMEmitter::Size::i64Bit, REG_CALLRET_SP, REG_CALLRET_SP, 0x400000);
+        add(ARMEmitter::Size::i64Bit, REG_CALLRET_SP, REG_CALLRET_SP, FEXCore::Core::InternalThreadState::CALLRET_DEFAULT_OFFSET);
         (void)Bind(&l_callret_ok);
       }
 #endif
@@ -388,12 +388,12 @@ DEF_OP(ExitFunction) {
         ARMEmitter::ForwardLabel l_callret_ok;
         /* iOS-Madeira ml263: tightened to a 4MB window -- see the first CALL push site. */
         ldr(TMP1, STATE, offsetof(FEXCore::Core::CpuStateFrame, State.callret_sp_base));
-        add(ARMEmitter::Size::i64Bit, TMP1, TMP1, 0x200000);
+        add(ARMEmitter::Size::i64Bit, TMP1, TMP1, FEXCore::Core::InternalThreadState::CALLRET_LIVE_OFFSET);
         sub(ARMEmitter::Size::i64Bit, TMP1, REG_CALLRET_SP, TMP1);
-        lsr(ARMEmitter::Size::i64Bit, TMP1, TMP1, 22);
+        lsr(ARMEmitter::Size::i64Bit, TMP1, TMP1, FEXCore::Core::InternalThreadState::CALLRET_LIVE_SHIFT);
         (void)cbz(ARMEmitter::Size::i64Bit, TMP1, &l_callret_ok);
         ldr(REG_CALLRET_SP, STATE, offsetof(FEXCore::Core::CpuStateFrame, State.callret_sp_base));
-        add(ARMEmitter::Size::i64Bit, REG_CALLRET_SP, REG_CALLRET_SP, 0x400000);
+        add(ARMEmitter::Size::i64Bit, REG_CALLRET_SP, REG_CALLRET_SP, FEXCore::Core::InternalThreadState::CALLRET_DEFAULT_OFFSET);
         (void)Bind(&l_callret_ok);
       }
 #endif

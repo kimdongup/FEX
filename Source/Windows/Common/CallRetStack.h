@@ -115,6 +115,11 @@ bool InitializeThread(FEXCore::Core::InternalThreadState* Thread) {
                           "containment path", ThisCall);
       } else if (ios_fex_band_base) {
       CallRetStackAlloc = ::VirtualAlloc2(nullptr, nullptr, CallRetStackAllocSize, MEM_RESERVE, PAGE_NOACCESS, &AddrParam, 1);
+      if (!CallRetStackAlloc && ios_fex_band_base >= 0x7000000000ULL) {
+        AddrReq.LowestStartingAddress = reinterpret_cast<void*>(0x7000000000ULL);
+        AddrReq.HighestEndingAddress = reinterpret_cast<void*>(0x717fffffffULL);
+        CallRetStackAlloc = ::VirtualAlloc2(nullptr, nullptr, CallRetStackAllocSize, MEM_RESERVE, PAGE_NOACCESS, &AddrParam, 1);
+      }
     }
   }
   /* ml706: NO unconstrained fallback here. Each 16-byte frame holds a HOST
@@ -208,9 +213,11 @@ bool InitializeThread(FEXCore::Core::InternalThreadState* Thread) {
       reported = true;
       auto Info = GetInfoThread(Thread);
       LogMan::Msg::EFmt("[callret-geom] base={:#x} default={:#x} size={:#x} "
-                        "guard-window=[base+0x200000, base+0x600000) grows-DOWN",
+                        "guard-offset={:#x} guard-size={:#x} grows-DOWN",
                         reinterpret_cast<uint64_t>(Thread->CallRetStackBase), Info.DefaultLocation,
-                        FEXCore::Core::InternalThreadState::CALLRET_STACK_SIZE);
+                        FEXCore::Core::InternalThreadState::CALLRET_STACK_SIZE,
+                        FEXCore::Core::InternalThreadState::CALLRET_LIVE_OFFSET,
+                        FEXCore::Core::InternalThreadState::CALLRET_LIVE_SIZE);
       /* iOS-Madeira ml271: print the REAL CpuStateFrame offsets once.
        *
        * The ntdll-unix side reads these fields out of x28 in signal handlers using

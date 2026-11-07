@@ -24,14 +24,12 @@ class DualIntrusiveAllocator {
 public:
   [[nodiscard]]
   bool DataCheckSize(size_t Size) const {
-    size_t NewOffset = DataCurrentOffset + Size;
-    return NewOffset <= MemorySize;
+    return DataCurrentOffset <= MemorySize && Size <= MemorySize - DataCurrentOffset;
   }
 
   [[nodiscard]]
   bool ListCheckSize(size_t Size) const {
-    size_t NewOffset = ListCurrentOffset + Size;
-    return NewOffset <= MemorySize;
+    return ListCurrentOffset <= MemorySize && Size <= MemorySize - ListCurrentOffset;
   }
 
   [[nodiscard]]
