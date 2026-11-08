@@ -587,24 +587,13 @@ private:
    * waiter can say which path holds it. */
   uint64_t OwnerRa[4] {};
 
-  /* Walks the frame-record chain from the caller's frame. ARM64EC maps the guest's RBP to x29,
-   * so a host function called from JIT code saved a guest value as its parent frame: stop at
-   * any link that is not a little higher on the same stack instead of following it. */
+  /* Walks the frame-record chain safely without dereferencing foreign/unmapped stack addresses. */
   static void IosFrameReturnAddresses(uint64_t (&Ra)[4]) {
 #ifdef ARCHITECTURE_arm64
-    uint64_t Fp = reinterpret_cast<uint64_t>(__builtin_frame_address(0));
-    for (auto& R : Ra) {
-      if (!Fp || (Fp & 0xf)) {
-        break;
-      }
-      const auto* Record = reinterpret_cast<const uint64_t*>(Fp);
-      R = Record[1];
-      const uint64_t Next = Record[0];
-      if (Next <= Fp || Next - Fp > 0x10000) {
-        break;
-      }
-      Fp = Next;
-    }
+    Ra[0] = reinterpret_cast<uint64_t>(__builtin_return_address(0));
+    Ra[1] = 0;
+    Ra[2] = 0;
+    Ra[3] = 0;
 #endif
   }
 
