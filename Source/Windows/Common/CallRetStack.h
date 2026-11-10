@@ -4,6 +4,7 @@
 #include <FEXCore/Core/Context.h>
 #include <FEXCore/Utils/Allocator.h>
 #include <FEXCore/Utils/LogManager.h>
+#include <FEXCore/Utils/MathUtils.h>
 #include <FEXCore/Debug/InternalThreadState.h>
 
 /* iOS-Madeira ml706: the one VA-layout profile, selected in rpmalloc's os_mmap
@@ -87,8 +88,12 @@ bool InitializeThread(FEXCore::Core::InternalThreadState* Thread) {
   const bool InjectCommit  = (InjectMode == CallRetInject::Commit  && ThisCall == InjectTarget);
 #endif
 
-  // Allocate the call-ret stack with guard pages on both sides
-  const size_t CallRetStackAllocSize = FEXCore::Core::InternalThreadState::CALLRET_STACK_SIZE + 2 * FEXCore::Utils::FEX_PAGE_SIZE;
+  // Allocate the call-ret stack with guard pages on both sides.
+  // Round the reserved mapping up to 64KiB so 8MiB+8KiB (0x802000) does not leave
+  // 7.99 MiB dead gaps under Wine/iOS FEX arena 64KiB-granule placement (Build 161).
+  // Extra tail remains reserved/uncommitted NOACCESS; usable stack/guards unchanged.
+  const size_t CallRetStackRawSize = FEXCore::Core::InternalThreadState::CALLRET_STACK_SIZE + 2 * FEXCore::Utils::FEX_PAGE_SIZE;
+  const size_t CallRetStackAllocSize = FEXCore::AlignUp(CallRetStackRawSize, size_t {0x10000});
   const void* CallRetStackAlloc = nullptr;
 #ifdef FEX_IOS_HOST
   /* iOS-Madeira ml324: steer the call-ret stack out of the guest VA band.
@@ -148,10 +153,8 @@ bool InitializeThread(FEXCore::Core::InternalThreadState* Thread) {
     return false;
   }
 
-  FEXCore::Allocator::VirtualName("FEXMem_CallRetStacks", CallRetStackAlloc,
-                                  FEXCore::Core::InternalThreadState::CALLRET_STACK_SIZE + 2 * FEXCore::Utils::FEX_PAGE_SIZE);
-  FEXCore::Allocator::VirtualTHPControl(CallRetStackAlloc, FEXCore::Core::InternalThreadState::CALLRET_STACK_SIZE + 2 * FEXCore::Utils::FEX_PAGE_SIZE,
-                                        FEXCore::Allocator::THPControl::Disable);
+  FEXCore::Allocator::VirtualName("FEXMem_CallRetStacks", CallRetStackAlloc, CallRetStackAllocSize);
+  FEXCore::Allocator::VirtualTHPControl(CallRetStackAlloc, CallRetStackAllocSize, FEXCore::Allocator::THPControl::Disable);
 
   Thread->CallRetStackBase = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(CallRetStackAlloc) + FEXCore::Utils::FEX_PAGE_SIZE);
   /* The COMMIT can fail on its own: the reservation only claims addresses.

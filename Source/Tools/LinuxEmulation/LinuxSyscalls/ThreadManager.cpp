@@ -8,6 +8,7 @@
 
 #include <FEXHeaderUtils/Syscalls.h>
 #include <FEXCore/Utils/Allocator.h>
+#include <FEXCore/Utils/MathUtils.h>
 #include <FEXCore/Utils/Profiler.h>
 #include <FEXCore/fextl/fmt.h>
 
@@ -169,7 +170,11 @@ void ThreadManager::SetThreadName(const char* name) {
   pthread_setname_np(pthread_self(), name);
 }
 
-constexpr size_t CALLRET_STACK_ALLOC_SIZE = FEXCore::Core::InternalThreadState::CALLRET_STACK_SIZE + 2 * FEXCore::Utils::FEX_PAGE_SIZE;
+// Reserve rounded to 64KiB to avoid 7.99 MiB dead gaps in Wine/iOS FEX arena
+// placement when call-ret stacks (8MiB+8KiB=0x802000) are interleaved with 16MiB
+// JIT/OpDispatcher blocks (Build 161 fragmentation root cause). Usable stack/guards unchanged.
+constexpr size_t CALLRET_STACK_RAW_SIZE = FEXCore::Core::InternalThreadState::CALLRET_STACK_SIZE + 2 * FEXCore::Utils::FEX_PAGE_SIZE;
+constexpr size_t CALLRET_STACK_ALLOC_SIZE = FEXCore::AlignUp(CALLRET_STACK_RAW_SIZE, size_t {0x10000});
 
 FEX::HLE::ThreadStateObject* ThreadManager::CreateThread(uint64_t InitialRIP, uint64_t StackPointer, const FEXCore::Core::CPUState* NewThreadState,
                                                          uint64_t ParentTID, FEX::HLE::ThreadStateObject* InheritThread) {
